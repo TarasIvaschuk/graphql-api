@@ -44,11 +44,11 @@ app.use("/graphql", graphqlHTTP({
   graphiql: true
 }));
 
-app.use((err, req, res) => {
+app.use((err, req, res, next) => {
   const data = err.data;
   const status = err.statusCode || 500;
   const message = err.message;
-  res.status(status).json({message, data});
+  return res.status(status).json({message, data});
 });
 
 mongoose.connect(process.env.MONGOOSE_CONNECTION_STRING)
