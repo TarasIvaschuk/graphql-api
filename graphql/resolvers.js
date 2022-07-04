@@ -1,9 +1,10 @@
 const User = require("../models/user");
+const Post = require ("../models/post");
 const bcrypt = require("bcryptjs");
 const validator = require("validator");
 const jwt = require("jsonwebtoken");
 
-module.exports = {
+module.exports =  {
   // eslint-disable-next-line no-unused-vars
   async createUser({ userInput }, req) {
     const errors = [];
@@ -69,5 +70,50 @@ module.exports = {
     });
 
     return { token, userId: user._id.toString() };
+  },
+  async createPost({ postInput }, req) {
+    const { title, imageUrl, content } = postInput;
+    const errors = [];
+
+    if (
+      validator.isEmpty(postInput.title)
+      || !validator.isLength(postInput.title, { min: 5 })
+    ) {
+      errors.push({
+        message: "Title is invalid. Must be minimum 5 char long"
+      });
+    }
+
+    if (
+      validator.isEmpty(postInput.content)
+      || !validator.isLength(postInput.content, { min: 5 })
+    ) {
+      errors.push({
+        message: "Content is invalid. Must be minimum 5 char long"
+      });
+    }
+
+    if (errors.length > 0) {
+      const error = new Error("Invalid input");
+      error.data = errors;
+      error.code = 422;
+      throw error;
+    }
+
+    const post =  await new Post({
+      title,
+      content,
+      imageUrl,
+    });
+
+    const createdPost = await post.save();
+    // todo to add post to users posts
+
+    return {
+      ...createdPost.doc, _id: createdPost._id.toString(),
+      createdAt:createdPost.createdAt.toISOString(),
+      updatedAt: createdPost.updatedAt.toISOString()
+    };
   }
+
 };
