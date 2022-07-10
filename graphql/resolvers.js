@@ -1,10 +1,10 @@
 const User = require("../models/user");
-const Post = require ("../models/post");
+const Post = require("../models/post");
 const bcrypt = require("bcryptjs");
 const validator = require("validator");
 const jwt = require("jsonwebtoken");
 
-module.exports =  {
+module.exports = {
   // eslint-disable-next-line no-unused-vars
   async createUser({ userInput }, req) {
     const errors = [];
@@ -72,7 +72,11 @@ module.exports =  {
     return { token, userId: user._id.toString() };
   },
   async createPost({ postInput }, req) {
-    const { title, imageUrl, content } = postInput;
+    if (!req.isAuth) {
+      const error = new Error("User is not authenticated");
+      error.code = 401;
+      throw error;
+    }
     const errors = [];
 
     if (
@@ -99,21 +103,53 @@ module.exports =  {
       error.code = 422;
       throw error;
     }
-
-    const post =  await new Post({
-      title,
-      content,
-      imageUrl,
+    const user = await User.findById(req.userId);
+    if (!user) {
+      const error = new Error("Invalid user");
+      error.code = 401;
+      throw error;
+    }
+    const post = await new Post({
+      title: postInput.title,
+      content: postInput.content,
+      imageUrl: postInput.imageUrl,
+      creator: user
     });
 
     const createdPost = await post.save();
-    // todo to add post to users posts
+    user.posts.push(createdPost);
+    await user.save();
 
     return {
-      ...createdPost.doc, _id: createdPost._id.toString(),
-      createdAt:createdPost.createdAt.toISOString(),
+      ...createdPost._doc, _id: createdPost._id.toString(),
+      createdAt: createdPost.createdAt.toISOString(),
       updatedAt: createdPost.updatedAt.toISOString()
     };
+  },
+  async getPosts(args, req) {
+    if (!req.isAuth) {
+      const error = new Error("User is not authenticated");
+      error.code = 401;
+      throw error;
+    }
+    // todo add pagination
+    // const currentPage = req.query.page || 1;
+    // const perPage = 2;
+    const totalItems = await Post.find().countDocuments();
+    const posts = await Post.find().populate("creator")
+      .sort({ createdAt: -1 });
+    // .skip((currentPage - 1) * perPage)
+    // .limit(perPage);
+    return {
+      posts: posts.map((post) => {
+        return {
+          ...post._doc, _id: post._id.toString(),
+          createdAt: post.createdAt.toISOString(),
+          updatedAt: post.updatedAt.toISOString()
+        };
+      }), totalItems
+    };
   }
-
 };
+
+
