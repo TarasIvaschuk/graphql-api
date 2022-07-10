@@ -126,20 +126,22 @@ module.exports = {
       updatedAt: createdPost.updatedAt.toISOString()
     };
   },
-  async getPosts(args, req) {
+  async getPosts({ page }, req) {
     if (!req.isAuth) {
       const error = new Error("User is not authenticated");
       error.code = 401;
       throw error;
     }
-    // todo add pagination
-    // const currentPage = req.query.page || 1;
-    // const perPage = 2;
+    if (!page) {
+      page = 1;
+    }
+    const perPage = 2;
+
     const totalItems = await Post.find().countDocuments();
     const posts = await Post.find().populate("creator")
-      .sort({ createdAt: -1 });
-    // .skip((currentPage - 1) * perPage)
-    // .limit(perPage);
+      .sort({ createdAt: -1 })
+      .skip((page - 1) * perPage)
+      .limit(perPage);
     return {
       posts: posts.map((post) => {
         return {
