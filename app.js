@@ -8,18 +8,22 @@ const { graphqlHTTP } = require("express-graphql");
 const graphqlSchema = require("./graphql/schema");
 const graphqlResolver = require("./graphql/resolvers");
 const auth = require("./middleware/is-auth");
+const fs = require("fs");
 
 const app = express();
 
 const fileStorage = multer.diskStorage({
+  // eslint-disable-next-line no-unused-vars
   destination: (req, file, cb) => {
     cb(null, "images");
   },
+  // eslint-disable-next-line no-unused-vars
   filename: (req, file, cb) => {
     cb(null, `${new Date().toISOString()}-${file.originalname}`);
   }
 });
 
+// eslint-disable-next-line no-unused-vars
 const fileFilter = (req, file, cb) => {
   if (file.mimetype === "image/png" || file.mimetype === "image/jpg" || file.mimetype === "image/jpeg") {
     cb(null, true);
@@ -44,6 +48,26 @@ app.use((req, res, next) => {
 });
 
 app.use(auth);
+
+// eslint-disable-next-line no-unused-vars
+app.put("/put-image", (req, res, next) => {
+  if (!req.isAuth) {
+    const error = new Error("User is not authenticated");
+    error.code = 401;
+    throw error;
+  }
+
+  if (!req.file) {
+    return res.status(200).json({ message: "Image is not provided" });
+  }
+  if (req.body.oldPath) {
+    clearImage(req.file.oldPath);
+  }
+  return res.status(201).json({
+    message: " A file stored",
+    filePath: req.file.path
+  });
+});
 
 app.use("/graphql", graphqlHTTP({
   schema: graphqlSchema,
@@ -75,3 +99,8 @@ mongoose.connect(process.env.MONGOOSE_CONNECTION_STRING)
   .catch((err) => {
     console.log(err);
   });
+
+const clearImage = filePath => {
+  filePath = path.join(__dirname, "..", filePath);
+  fs.unlink(filePath, err => console.log(err));
+};
