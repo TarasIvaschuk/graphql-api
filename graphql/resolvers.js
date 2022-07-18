@@ -3,6 +3,14 @@ const Post = require("../models/post");
 const bcrypt = require("bcryptjs");
 const validator = require("validator");
 const jwt = require("jsonwebtoken");
+const path = require ("path");
+const fs = require("fs");
+
+
+const clearImage = filePath => {
+  filePath = path.join(__dirname, "..", filePath);
+  fs.unlink(filePath, err => console.log(err));
+};
 
 module.exports = {
   // eslint-disable-next-line no-unused-vars
@@ -227,8 +235,32 @@ module.exports = {
       updatedAt: updatedPost.updatedAt.toISOString(),
       createdAt: updatedPost.createdAt.toISOString()
     };
-  }
+  },
+  async deletePost({ id }, req) {
+    if (!req.isAuth) {
+      const error = new Error("User is not authenticated");
+      error.code = 401;
+      throw error;
+    }
+    const post = await Post.findById(id);
+    if (!post) {
+      const error = new Error("Post is not found");
+      error.code = 404;
+      throw error;
+    }
 
+    if (post.creator.toString() !== req.userId.toString()) {
+      const error = new Error("Not authorized to delete the post");
+      error.code = 403;
+      throw error;
+    }
+    clearImage(post.imageUrl);
+    await Post.findByIdAndRemove(id);
+    const user = await User.findById(req.userId);
+    await user.posts.pull(id);
+    await user.save();
+    return true;
+  }
 };
 
 
