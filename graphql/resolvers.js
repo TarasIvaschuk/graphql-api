@@ -1,11 +1,11 @@
+/* eslint-disable id-length */
 const User = require("../models/user");
 const Post = require("../models/post");
 const bcrypt = require("bcryptjs");
 const validator = require("validator");
 const jwt = require("jsonwebtoken");
-const path = require ("path");
+const path = require("path");
 const fs = require("fs");
-
 
 const clearImage = filePath => {
   filePath = path.join(__dirname, "..", filePath);
@@ -260,6 +260,46 @@ module.exports = {
     await user.posts.pull(id);
     await user.save();
     return true;
+  },
+  // eslint-disable-next-line no-unused-vars
+  async getStatus(_, req) {
+    if (!req.isAuth) {
+      const error = new Error("User is not authenticated");
+      error.code = 401;
+      throw error;
+    }
+    const user = await User.findById(req.userId);
+    if (!user) {
+      const error = new Error("No user is found with this ID!");
+      error.statusCode = 401;
+      throw error;
+    }
+    return await user.status;
+  },
+  async updateStatus({ statusInput }, req) {
+    console.log("statusInput", statusInput);
+    // if (!req.isAuth) {
+    //   const error = new Error("User is not authenticated");
+    //   error.code = 401;
+    //   throw error;
+    // }
+    if (
+      validator.isEmpty(statusInput)
+      || !validator.isLength(statusInput, { min: 5 })
+    ) {
+      const error = new Error({ message: "Status is invalid. Must be minimum 5 char long" });
+      error.code = 422;
+      throw error;
+    }
+    const user = await User.findById(req.userId);
+    if (!user) {
+      const error = new Error("No user is found with this ID!");
+      error.statusCode = 401;
+      throw error;
+    }
+    user.status = statusInput;
+    await user.save();
+    return { ...user._doc, _id: user._id.toString() };
   }
 };
 
